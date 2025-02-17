@@ -827,7 +827,7 @@ var
   var m: boolean; i: integer;
   begin
     m := true;
-    for i := 1 to reslen do if lcase(a[i]) <> lcase(b[i]) then m := false;
+    for i := 1 to reslen do if a[i] <> b[i] then m := false;
     for i := reslen+1 to maxids do if b[i] <> ' ' then m := false;
     strequri := m
   end { equstr };
@@ -939,7 +939,7 @@ var
   begin
     m := true;
     while (a <> nil) and (b <> nil) do begin
-      for i := 1 to varsqt do if lcase(a^.str[i]) <> lcase(b^.str[i]) then m := false;
+      for i := 1 to varsqt do if a^.str[i] <> b^.str[i] then m := false;
       a := a^.next; b := b^.next
     end;
     if a <> b then m := false;
@@ -970,7 +970,7 @@ var
     m := true; j := 1;
     for i := 1 to maxids do begin
       c := ' '; if a <> nil then begin c := a^.str[j]; j := j+1 end;
-      if lcase(c) <> lcase(b[i]) then m := false;
+      if c <> b[i] then m := false;
       if j > varsqt then begin a := a^.next; j := 1 end
     end;
     strequvf := m

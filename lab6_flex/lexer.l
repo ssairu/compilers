@@ -64,19 +64,38 @@ int add_ident(char *name) {
     return node->id;
 }
 
+const char* get_ident_name(int id) {
+    struct IdentNode *node = ident_list;
+    while (node != NULL) {
+        if (node->id == id) {
+            return node->name;
+        }
+        node = node->next;
+    }
+    return "(unknown)";
+}
+
 struct Error {
     struct Position pos;
     char *message;
     struct Error *next;
 };
 struct Error *error_list = NULL;
+struct Error *error_list_tail = NULL;
 
 void add_error(struct Position *pos, char *msg) {
     struct Error *err = (struct Error *)malloc(sizeof(struct Error));
     err->pos = *pos;
     err->message = strdup(msg);
-    err->next = error_list;
-    error_list = err;
+    err->next = NULL;
+
+    if (error_list == NULL) {
+        error_list = err;
+        error_list_tail = err;
+    } else {
+        error_list_tail->next = err;
+        error_list_tail = err;
+    }
 }
 
 void print_errors() {
@@ -93,7 +112,7 @@ struct Position cur;
 #define YY_USER_ACTION { \
     int i; \
     if (!continued) \
-        yylloc.starting = cur; \
+        yylloc->starting = cur; \
     continued = 0; \
     for (i = 0; i < yyleng; i++) { \
         if (yytext[i] == '\n') { \
@@ -104,7 +123,7 @@ struct Position cur;
         } \
         cur.index++; \
     } \
-    yylloc.following = cur; \
+    yylloc->following = cur; \
 }
 
 void init_scanner(FILE *input) {
@@ -122,11 +141,11 @@ LETTER [a-zA-Z]
 DIGIT [0-9]
 IDENT {LETTER}({LETTER}|{DIGIT})*
 
-%x SUPER_STRING STRING STRING_NUM
+%x STRING STRING_NUM SUPER_STRING
 
 %%
 
-[ \t\n]+
+<INITIAL>[ \t\n]+
 
 {IDENT}           {
     yylval->ident_id = add_ident(yytext);
@@ -138,22 +157,35 @@ IDENT {LETTER}({LETTER}|{DIGIT})*
     yylval->string = strdup("");
 }
 
-<STRING>"'"/[^#]       {
-    BEGIN(0);
-    return TAG_STRING;
+<SUPER_STRING>"'"       {
+	BEGIN(STRING); continued = 1;
+}
+
+<INITIAL>"#"                {
+    BEGIN(STRING_NUM); continued = 1;
+    yylval->string = strdup("");
+}
+
+<SUPER_STRING>[#]       {
+	BEGIN(STRING_NUM); continued = 1;
 }
 
 <STRING>"'#"       {
     BEGIN(STRING_NUM); continued = 1;
 }
 
-<STRING>\\'\\'      {
+<STRING>"''"      {
     char *new_str = (char *)malloc(strlen(yylval->string) + 2);
     strcpy(new_str, yylval->string);
     strcat(new_str, "'");
     free(yylval->string);
     yylval->string = new_str;
     continued = 1;
+}
+
+<STRING>"'"/[^#]       {
+    BEGIN(0);
+    return TAG_STRING;
 }
 
 <STRING>[^'\n#]*  {
@@ -167,8 +199,7 @@ IDENT {LETTER}({LETTER}|{DIGIT})*
 
 <STRING>\n        {
     add_error(&cur, "newline in string literal");
-    BEGIN(0);
-    return TAG_STRING;
+    continued = 1;
 }
 
 <STRING>.         {
@@ -176,7 +207,7 @@ IDENT {LETTER}({LETTER}|{DIGIT})*
     continued = 1;
 }
 
-<STRING_NUM>{DIGIT}{1,3} {
+<STRING_NUM>{DIGIT}{1,3}/['#] {
     char *endptr;
     int code = strtol(yytext, &endptr, 10);
     if (*endptr != '\0' || code < 0 || code > 255) {
@@ -189,9 +220,27 @@ IDENT {LETTER}({LETTER}|{DIGIT})*
         free(yylval->string);
         yylval->string = new_str;
     }
-    BEGIN(STRING);
+    BEGIN(SUPER_STRING);
     continued = 1;
 }
+
+<STRING_NUM>{DIGIT}{1,3}/[^#'] {
+    char *endptr;
+    int code = strtol(yytext, &endptr, 10);
+    if (*endptr != '\0' || code < 0 || code > 255) {
+        add_error(&cur, "invalid character code");
+    } else {
+        char *new_str = (char *)malloc(strlen(yylval->string) + 2);
+        strcpy(new_str, yylval->string);
+        new_str[strlen(new_str)] = (char)code;
+        new_str[strlen(new_str) + 1] = '\0';
+        free(yylval->string);
+        yylval->string = new_str;
+    }
+    BEGIN(0);
+    return TAG_STRING;
+}
+
 <STRING_NUM>[^0-9] {
     add_error(&cur, "expected number after '#'");
     BEGIN(STRING);
@@ -230,7 +279,7 @@ int main(int argc, char *argv[]) {
             printf("%s ", tag_names[tag]);
             print_frag(&coords);
             if (tag == TAG_IDENT) {
-                printf(": %d", value.ident_id);
+                printf(": %s", get_ident_name(value.ident_id));
             } else if (tag == TAG_STRING) {
                 printf(": %s", value.string);
                 free(value.string);

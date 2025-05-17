@@ -1,0 +1,21 @@
+<grammar> ::= <definition>*
+
+<definition> ::= <tokens-decl> | <rule> | <axiom> | <comment>
+
+<tokens-decl> ::= "tokens" <id> ( "," <id> )* "."
+
+<term-rules> ::=
+
+<rule> ::= "(" <id> ")" "is" <prod> ( "," <rule> )* "."
+
+<axiom> ::= "start" "(" <id> ")" "."
+
+<comment> ::= "(*" <comment-text> "*)"
+
+<prod> ::= <symbol>*
+
+<symbol> ::= "(" <id> ")"
+
+<id> ::= <identifier>
+
+<comment-text> ::= <any-text>

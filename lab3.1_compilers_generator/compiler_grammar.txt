@@ -1,0 +1,39 @@
+(*  токены  *)
+tokens (tokens), (start), (is).
+tokens (,), (.), (id).
+
+(*  grammar ::= definition grammar | ε  *)
+(grammar) is (definition) (grammar),
+(grammar) is .
+
+(*  definition ::= tokens-decl | rules | axiom  *)
+(definition) is (tokens-decl),
+(definition) is (rules),
+(definition) is (axiom).
+
+(*  tokens-decl ::= tokens id TI .  *)
+(tokens-decl) is (tokens) (id) (TI) (.).
+
+(*  TI ::= , id TI | ε  *)
+(TI) is (,) (id) (TI),
+(TI) is .
+
+(*  rules ::= rule .  *)
+(rules) is (rule) (.).
+
+(*  rule ::= id is SP RP  *)
+(rule) is (id) (is) (SP) (RP).
+
+(*  SP ::= id SP | ε  *)
+(SP) is (id) (SP),
+(SP) is .
+
+(*  RP ::= , rule | ε  *)
+(RP) is (,) (rule),
+(RP) is .
+
+(*  axiom ::= start id .  *)
+(axiom) is (start) (id) (.).
+
+(*  аксиома это grammar  *)
+start (grammar).

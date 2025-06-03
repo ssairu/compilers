@@ -1,0 +1,45 @@
+<program> ::= <decl_list>
+
+<decl_list> ::= <decl_list> <decl>
+            | ε
+
+<decl> ::= <type_decl>
+         | <fun_decl>
+
+<type_decl> ::= "type" ID ":" <constructor_list> "."
+
+<constructor_list> ::= <id_list>
+                    | <id_list> "|" <constructor_list>
+
+<id_list> ::= ID
+            | ID <id_list>
+
+<fun_decl> ::= "fun" "(" ID <id_list> ")" "->" ID ":" <fun_body_list> "."
+
+<fun_body_list> ::= <fun_body>
+                  | <fun_body> "|" <fun_body_list>
+
+<fun_body> ::= <pattern> "->" <expr_list>
+             | <pattern> "->" <expr_list> "where" <local_defs> "wend"
+
+<pattern> ::= <fun_arg>
+            | "[" <pattern_list> "]"
+            | "(" <pattern_list> ")"
+
+<fun_arg> ::= ID
+            | NUMBER
+            | "_"
+
+<pattern_list> ::= <pattern>
+                 | <pattern> <pattern_list>
+
+<expr> ::= ID
+         | NUMBER
+         | "[" <expr_list> "]"
+         | "(" <expr_list> ")"
+
+<expr_list> ::= <expr>
+              | <expr> <expr_list>
+
+<local_defs> ::= <fun_decl>
+               | <fun_decl> <local_defs>

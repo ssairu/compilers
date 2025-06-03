@@ -16,6 +16,6 @@ struct Extra {
 };
 
 void init_scanner(FILE *input, yyscan_t *scanner, struct Extra *extra);
-void destroy_scanner(yyscan_t);
+void destroy_scanner(yyscan_t scanner);
 
 #endif /* LEXER_H */

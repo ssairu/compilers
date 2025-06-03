@@ -1,7 +1,7 @@
 #!/bin/bash
 
 flex lexer.l
-bison -d parser.y
-gcc -o calc *.c
-rm -f lex.yy.c parser.tab.?
-./calc input.txt
+bison -d -Wcounterexamples parser.y
+gcc -o formatter lex.yy.c parser.tab.c -lfl
+rm -f lex.yy.c parser.tab.c parser.tab.h
+./formatter input.txt > output.txt

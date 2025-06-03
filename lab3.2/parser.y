@@ -1,250 +1,160 @@
 %{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "lexer.h"
 
-typedef struct {
-    int indent_level;
-    FILE *output;
-} Formatter;
-
-void format_indent(Formatter *f) {
-    for (int i = 0; i < f->indent_level; i++) {
-        fprintf(f->output, "  ");
+char* indent(char* str, int level) {
+    if (!str) return strdup("");
+    char indent_str[10];
+    sprintf(indent_str, "%*s", level * 2, "");
+    char* result = malloc(10000);
+    result[0] = '\0';
+    char* line = strtok(str, "\n");
+    if (line != NULL) {
+        strcat(result, indent_str);
+        strcat(result, line);
+        line = strtok(NULL, "\n");
+        while (line != NULL) {
+            strcat(result, "\n");
+            strcat(result, indent_str);
+            strcat(result, line);
+            line = strtok(NULL, "\n");
+        }
     }
-}
-
-void print_formatted(Formatter *f, const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    format_indent(f);
-    vfprintf(f->output, fmt, args);
-    va_end(args);
+    return result;
 }
 %}
 
 %define api.pure
 %locations
+
 %lex-param {yyscan_t scanner}
 %parse-param {yyscan_t scanner}
-%parse-param {Formatter *formatter}
 
 %union {
-    char *string;
-    int number;
+    char* str;
 }
 
-%token TYPE FUN WHERE WEND ARROW PIPE COLON DOT COMMA
-%token LEFT_PAREN RIGHT_PAREN LEFT_BRACKET RIGHT_BRACKET
-%token <string> TYPE_NAME IDENTIFIER
-%token <number> NUMBER
+%token TYPE FUN WHERE WEND COLON PIPE ARROW LBRACK RBRACK LPAREN RPAREN UNDERSCORE DOT
+%token <str> ID NUMBER
 
-%type <string> type_declaration type_constructors type_constructor
-%type <string> function_declaration pattern expression where_clause
-%type <string> function_definition function_body
+%type <str> program decl_list decl type_decl constructor_list id_list fun_arg fun_body_list
+%type <str> fun_decl fun_body pattern pattern_list expr expr_list local_defs
 
-%{
-int yylex(YYSTYPE *yylval_param, YYLTYPE *yylloc_param, yyscan_t scanner);
-void yyerror(YYLTYPE *loc, yyscan_t scanner, Formatter *formatter, const char *message);
-%}
+%start program
 
 %%
 
 program:
-    declaration_list
+      decl_list { printf("%s\n", $1); }
     ;
 
-declaration_list:
-    declaration
-    | declaration_list declaration
+decl_list:
+      /* empty */ { $$ = ""; }
+    | decl_list decl { $$ = malloc(10000); sprintf($$, "%s\n%s\n", $1, $2); }
     ;
 
-declaration:
-    type_declaration { fprintf(formatter->output, "%s\n\n", $1); free($1); }
-    | function_declaration { fprintf(formatter->output, "%s\n\n", $1); free($1); }
+decl:
+      type_decl { $$ = $1; }
+    | fun_decl { $$ = $1; }
     ;
 
-type_declaration:
-    TYPE TYPE_NAME COLON type_constructors DOT
-    {
-        $$ = malloc(256);
-        snprintf($$, 256, "type %s: %s.", $2, $4);
-        free($2); free($4);
-    }
+type_decl:
+      TYPE ID COLON constructor_list DOT { 
+        char* indented = indent($4, 1); 
+        $$ = malloc(10000); 
+        sprintf($$, "type %s:\n%s.", $2, indented); 
+        free(indented); 
+      }
     ;
 
-type_constructors:
-    type_constructor
-    {
-        $$ = $1;
-    }
-    | type_constructors PIPE type_constructor
-    {
-        $$ = malloc(strlen($1) + strlen($3) + 4);
-        sprintf($$, "%s | %s", $1, $3);
-        free($1); free($3);
-    }
+constructor_list:
+      id_list { $$ = $1; }
+    | id_list PIPE constructor_list { $$ = malloc(10000); sprintf($$, "%s |\n%s", $1, $3); }
     ;
 
-type_constructor:
-    TYPE_NAME
-    {
-        $$ = strdup($1);
-    }
-    | TYPE_NAME type_fields
-    {
-        $$ = malloc(strlen($1) + strlen($2) + 1);
-        sprintf($$, "%s%s", $1, $2);
-        free($1); free($2);
-    }
+id_list:
+      ID { $$ = $1; } 
+    | ID id_list { $$ = malloc(10000); sprintf($$, "%s %s", $1, $2); }
     ;
 
-type_fields:
-    TYPE_NAME
-    {
-        $$ = malloc(strlen($1) + 2);
-        sprintf($$, " %s", $1);
-        free($1);
-    }
-    | type_fields TYPE_NAME
-    {
-        $$ = malloc(strlen($1) + strlen($2) + 2);
-        sprintf($$, "%s %s", $1, $2);
-        free($1); free($2);
-    }
+fun_decl:
+      FUN LPAREN ID id_list RPAREN ARROW ID COLON fun_body_list DOT { 
+        char* indented = indent($9, 1); 
+        $$ = malloc(10000); 
+        sprintf($$, "fun (%s %s) -> %s:\n%s.", $3, $4, $7, indented); 
+        free(indented); 
+      }
     ;
 
-function_declaration:
-    FUN LEFT_PAREN pattern RIGHT_PAREN ARROW TYPE_NAME function_body
-    {
-        $$ = malloc(256);
-        snprintf($$, 256, "fun (%s) -> %s%s", $3, $6, $7);
-        free($3); free($6); free($7);
-    }
-    ;
+fun_body_list:
+      fun_body { $$ = $1; }
+    | fun_body PIPE fun_body_list { $$ = malloc(10000); sprintf($$, "%s |\n%s", $1, $3); }
 
-function_body:
-    COLON function_definition
-    {
-        formatter->indent_level++;
-        $$ = malloc(strlen($2) + 2);
-        sprintf($$, ":\n%s", $2);
-        formatter->indent_level--;
-        free($2);
-    }
-    ;
 
-function_definition:
-    pattern ARROW expression where_clause
-    {
-        char *temp = malloc(256);
-        snprintf(temp, 256, "  (%s) -> %s%s", $1, $3, $4);
-        $$ = temp;
-        free($1); free($3); free($4);
-    }
-    | function_definition PIPE function_definition
-    {
-        $$ = malloc(strlen($1) + strlen($3) + 2);
-        sprintf($$, "%s\n%s", $1, $3);
-        free($1); free($3);
-    }
-    ;
-
-where_clause:
-    /* empty */ { $$ = strdup(""); }
-    | WHERE function_declaration_list WEND
-    {
-        formatter->indent_level++;
-        $$ = malloc(strlen($2) + 8);
-        sprintf($$, "\n  where%s\n  wend", $2);
-        formatter->indent_level--;
-        free($2);
-    }
-    ;
-
-function_declaration_list:
-    function_declaration
-    {
-        $$ = $1;
-    }
-    | function_declaration_list function_declaration
-    {
-        $$ = malloc(strlen($1) + strlen($2) + 2);
-        sprintf($$, "%s\n%s", $1, $2);
-        free($1); free($2);
-    }
+fun_body:
+      pattern ARROW expr_list { $$ = malloc(10000); sprintf($$, "%s -> %s", $1, $3); }
+    | pattern ARROW expr_list WHERE local_defs WEND {
+        char* indented = indent($5, 1); 
+        $$ = malloc(10000); 
+        sprintf($$, "%s -> %s\nwhere\n%s\nwend", $1, $3, indented); 
+        free(indented); 
+      }
     ;
 
 pattern:
-    LEFT_BRACKET expression RIGHT_BRACKET
-    {
-        $$ = malloc(strlen($2) + 3);
-        sprintf($$, "[%s]", $2);
-        free($2);
-    }
-    | IDENTIFIER { $$ = strdup($1); }
-    | NUMBER
-    {
-        $$ = malloc(16);
-        sprintf($$, "%d", $1);
-    }
+      fun_arg { $$ = $1; }
+    | LBRACK pattern_list RBRACK { $$ = malloc(10000); sprintf($$, "[%s]", $2); }
+    | LPAREN pattern_list RPAREN { $$ = malloc(10000); sprintf($$, "(%s)", $2); }
+    ;
+    
+fun_arg:
+      ID { $$ = $1; } 
+    | NUMBER { $$ = $1; }
+    | UNDERSCORE { $$ = "_"; }
     ;
 
-expression:
-    IDENTIFIER { $$ = strdup($1); }
-    | NUMBER
-    {
-        $$ = malloc(16);
-        sprintf($$, "%d", $1);
-    }
-    | LEFT_PAREN expression RIGHT_PAREN
-    {
-        $$ = malloc(strlen($2) + 3);
-        sprintf($$, "(%s)", $2);
-        free($2);
-    }
-    | IDENTIFIER LEFT_PAREN expression_list RIGHT_PAREN
-    {
-        $$ = malloc(strlen($1) + strlen($3) + 3);
-        sprintf($$, "%s(%s)", $1, $3);
-        free($1); free($3);
-    }
+
+pattern_list:
+      pattern { $$ = $1; }
+    | pattern pattern_list { $$ = malloc(10000); sprintf($$, "%s %s", $1, $2); }
     ;
 
-expression_list:
-    expression
-    {
-        $$ = $1;
-    }
-    | expression_list COMMA expression
-    {
-        $$ = malloc(strlen($1) + strlen($3) + 3);
-        sprintf($$, "%s, %s", $1, $3);
-        free($1); free($3);
-    }
+expr:
+      ID { $$ = $1; }
+    | NUMBER { $$ = $1; }
+    | LBRACK expr_list RBRACK { $$ = malloc(10000); sprintf($$, "[%s]", $2); }
+    | LPAREN expr_list RPAREN { $$ = malloc(10000); sprintf($$, "(%s)", $2); }
+    ;
+
+expr_list:
+      expr { $$ = $1; }
+    | expr expr_list { $$ = malloc(10000); sprintf($$, "%s %s", $1, $2); }
+    ;
+
+local_defs:
+      fun_decl { $$ = $1; }
+    | fun_decl local_defs { $$ = malloc(10000); sprintf($$, "%s\n%s", $1, $2); }
     ;
 
 %%
-
-void yyerror(YYLTYPE *loc, yyscan_t scanner, Formatter *formatter, const char *message) {
-    fprintf(stderr, "Error at line %d, column %d: %s\n", 
-            loc->first_line, loc->first_column, message);
-}
 
 int main(int argc, char *argv[]) {
     FILE *input = stdin;
     yyscan_t scanner;
     struct Extra extra;
-    Formatter formatter = {0, stdout};
 
     if (argc > 1) {
         input = fopen(argv[1], "r");
         if (!input) {
-            perror("Error opening input file");
+            perror("fopen");
             return 1;
         }
     }
 
     init_scanner(input, &scanner, &extra);
-    yyparse(scanner, &formatter);
+    yyparse(scanner);
     destroy_scanner(scanner);
 
     if (input != stdin) {

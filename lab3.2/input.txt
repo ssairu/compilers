@@ -1,2 +1,53 @@
-input a, b;
-print m = a - b ? (a, a, b), a + b - m, (a + b) / 2.
+<< Объявления типов >>
+type List: Cons Int List | Nil.
+type Pair: Pair Int Int.
+type PairList: PCons Pair PairList | PNil.
+type ListList: XCons List ListList | XNil.
+
+<< Объединение двух списков >>
+fun (zip List List) -> PairList:
+
+(zip [Cons x xs] [Cons y ys]) -> [PCons [Pair x y] (zip xs ys)] |
+(zip _ _) -> [PNil].
+
+<< Декартово произведение >>
+fun (cart_prod List List) -> PairList:
+
+(cart_prod [Cons x xs] ys) -> (append (bind x ys) (cart_prod xs ys))
+  where
+    fun (bind Int List) -> PairList:
+
+    (bind x [Cons y ys]) -> [PCons [Pair x y] (bind x ys)] |
+    (bind _ [Nil]) -> [PNil].
+  wend |
+(cart_prod [Nil] _) -> [PNil].
+
+<< Конкатенация списков пар >>
+fun (append PairList PairList) -> PairList:
+
+(append [PCons x xs] ys) -> [PCons x (append xs ys)] |
+(append [PNil] ys) -> ys.
+
+<< Расплющивание вложенного списка >>
+fun (flat ListList) -> List:
+
+(flat [XCons [Cons x xs] xss]) -> [Cons x (flat [XCons xs xss])] |
+(flat [XCons [Nil] xss]) -> (flat xss) |
+(flat [XNil]) -> [Nil].
+
+<< Сумма элементов списка >>
+fun (sum List) -> Int:
+
+(sum [Cons x xs]) -> (add x (sum xs)) |
+(sum [Nil]) -> 0.
+
+<< Вычисление полинома по схеме Горнера >>
+fun (polynom Int List) -> Int:
+
+(polynom x [Nil]) -> 0 |
+(polynom x [Cons coef coefs]) -> (add (mul (polynom x coefs) x) coef).
+
+<< Вычисление полинома x^3 + x^2 + x + 1 >>
+fun (polynom1111 Int) -> Int:
+
+(polynom1111 x) -> (polynom x [Cons 1 [Cons 1 [Cons 1 [Cons 1 [Nil]]]]]).

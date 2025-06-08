@@ -1,0 +1,45 @@
+<program> ::= <declaration> *
+
+<declaration> ::= <struct-decl>
+               | <union-decl>
+               | <enum-decl>
+
+<struct-decl> ::= "struct" [ <identifier> ] [ "{" <struct-body> "}" ] [ <declarator> * ] ";"
+<union-decl>  ::= "union"  [ <identifier> ] [ "{" <union-body>  "}" ] [ <declarator> * ] ";"
+<enum-decl>   ::= "enum"   [ <identifier> ] [ "{" <enum-body>   "}" ] [ <declarator> * ] ";"
+
+<struct-body> ::= <member-decl> *
+<union-body>  ::= <member-decl> *
+<enum-body>   ::= <enum-constant> ( "," <enum-constant> ) * [ "," ]
+
+<member-decl> ::= <type-specifier> <declarator> ( "," <declarator> ) * ";"
+               | <struct-decl>
+               | <union-decl>
+               | <enum-decl>
+
+<type-specifier> ::= "int"
+                  | "char"
+                  | "double"
+                  | "struct" <identifier>
+                  | "union" <identifier>
+                  | "enum" <identifier>
+
+<array-identifier> ::= <identifier> "[" <enum-expr> "]"
+                   | <array-identifier> "[" <enum-expr> "]"
+
+<declarator> ::= <identifier>
+              | <array-identifier>
+              | "*" <declarator>
+
+<enum-constant> ::= <identifier> [ "=" <enum-expr> ]
+
+<enum-expr> ::= <enum-term> ( <binary-op> <enum-term> ) *
+<enum-term> ::= <integer-constant>
+             | <identifier>
+             | "sizeof" "(" <type-specifier> ")"
+             | "(" <enum-expr> ")"
+
+<binary-op> ::= "+" | "-" | "*" | "/"
+
+<identifier> ::= /* строка, соответствующая идентификатору */
+<integer-constant> ::= /* десятичное целое число */

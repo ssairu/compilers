@@ -1,0 +1,52 @@
+<program> ::= <declaration>*
+
+<declaration> ::= <struct-decl>
+                | <union-decl>
+                | <enum-decl>
+
+<struct-decl> ::= "struct" <opt-identifier> <opt-struct-union-body> <opt-declarators> ";"
+<union-decl>  ::= "union"  <opt-identifier> <opt-struct-union-body> <opt-declarators> ";"
+<enum-decl>   ::= "enum"   <opt-identifier> <opt-enum-body> <opt-declarators> ";"
+
+<opt-identifier> ::= <identifier> | ε
+<opt-struct-union-body> ::= "{" <struct-union-body> "}" | ε
+<opt-enum-body>   ::= "{" <enum-body>   "}" | ε
+<opt-declarators> ::= <declarator> <opt-declarators> | ε
+
+<struct-union-body> ::= <member-decl> <struct-union-body> | ε
+<enum-body>   ::= <enum-constant> "," <enum-body> | <enum-constant> | ε
+
+<member-decl> ::= <type-member-decl> | <nested-decl>
+<type-member-decl> ::= <type-specifier> <declarator> <comma-declarator> ";"
+<nested-decl> ::= <struct-decl> | <union-decl> | <enum-decl>
+
+<comma-declarator> ::= "," <declarator> <comma-declarator> | ε
+
+<type-specifier> ::= <simple-type> | <named-type>
+<simple-type> ::= "int" | "char" | "double"
+<named-type> ::= "struct" <identifier> | "union" <identifier> | "enum" <identifier>
+
+<array-identifier> ::= <identifier> <array-brackets>
+<array-brackets>   ::= "[" <enum-expr> "]" <array-brackets> | ε
+
+<declarator> ::= <pointer> <direct-declarator>
+<direct-declarator> ::= <identifier> | <array-identifier>
+<pointer> ::= "*" <pointer> | ε
+
+<enum-constant> ::= <identifier> | <identifier> "=" <enum-expr>
+
+<enum-expr> ::= <mul-term>
+              | <mul-term> "+" <enum-expr>
+              | <mul-term> "-" <enum-expr>
+
+<mul-term> ::= <enum-term>
+             | <enum-term> "*" <mul-term>
+             | <enum-term> "/" <mul-term>
+
+<enum-term> ::= <integer-constant>
+              | <identifier>
+              | "sizeof" "(" <type-specifier> ")"
+              | "(" <enum-expr> ")"
+
+<identifier> ::= /* буква (буква|цифра|'_')* */
+<integer-constant> ::= /* десятичное целое число */

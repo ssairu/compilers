@@ -7,17 +7,15 @@ from dataclasses import dataclass
 from pprint import pprint
 
 
-# Определение типов
 class Type(enum.Enum):
-    Int = 'int'
-    Char = 'char'
-    Double = 'double'
-    Struct = 'struct'
-    Union = 'union'
-    Enum = 'enum'
+    Int = "int"
+    Char = "char"
+    Double = "double"
+    Struct = "struct"
+    Union = "union"
+    Enum = "enum"
 
 
-# Класс для семантических ошибок
 class SemanticError(pe.Error):
     def __init__(self, pos, message):
         self.pos = pos
@@ -28,7 +26,6 @@ class SemanticError(pe.Error):
         return self.__message
 
 
-# Абстрактные классы
 class TypeSpecifier(abc.ABC):
     @abc.abstractmethod
     def check(self, tags, pos):
@@ -83,7 +80,7 @@ class SympleType(TypeSpecifier):
         if self.type == Type.Int:
             return 4
         elif self.type == Type.Char:
-            return 4  # Можно изменить на 1, если требуется
+            return 1
         elif self.type == Type.Double:
             return 8
         return 0
@@ -96,17 +93,21 @@ class IdentifierTerm(EnumTerm):
 
     @pe.ExAction
     def create(attrs, coords, res_coord):
-        name, = attrs
-        cname, = coords
+        (name,) = attrs
+        (cname,) = coords
         return IdentifierTerm(name, cname.start)
 
     def check(self, tags, consts):
         if self.name not in consts:
-            raise SemanticError(self.name_coord, f"Необъявленная константа {self.name}")
+            raise SemanticError(
+                self.name_coord, f"Необъявленная константа {self.name}"
+            )
 
     def evaluate(self, tags, consts):
         if self.name not in consts:
-            raise SemanticError(self.name_coord, f"Необъявленная константа {self.name}")
+            raise SemanticError(
+                self.name_coord, f"Необъявленная константа {self.name}"
+            )
         return consts[self.name]
 
 
@@ -117,39 +118,35 @@ class NamedType(TypeSpecifier):
 
     @pe.ExAction
     def create_struct(attrs, coords, res_coord):
-        id, = attrs
+        (id,) = attrs
         _, cid = coords
         return NamedType(Type.Struct, IdentifierTerm(id, cid.start))
 
     @pe.ExAction
     def create_union(attrs, coords, res_coord):
-        id, = attrs
+        (id,) = attrs
         _, cid = coords
         return NamedType(Type.Union, IdentifierTerm(id, cid.start))
 
     @pe.ExAction
     def create_enum(attrs, coords, res_coord):
-        id, = attrs
+        (id,) = attrs
         _, cid = coords
         return NamedType(Type.Enum, IdentifierTerm(id, cid.start))
 
     def check(self, tags, pos):
         if self.identifier.name not in tags:
-            raise SemanticError(self.identifier.name_coord, f"Необъявленный тег {self.identifier.name}")
-        decl = tags[self.identifier.name]
-        decl_type = {
-            StructDecl: Type.Struct,
-            UnionDecl: Type.Union,
-            EnumDecl: Type.Enum
-        }.get(type(decl))
-        if decl_type is None:
-            raise SemanticError(self.identifier.name_coord, f"Тег {self.identifier.name} имеет неподдерживаемый тип")
-        if decl_type != self.type:
-            raise SemanticError(self.identifier.name_coord, f"Тег {self.identifier.name} не соответствует типу {self.type.value}")
+            raise SemanticError(
+                self.identifier.name_coord,
+                f"Необъявленный тег {self.identifier.name}",
+            )
 
     def size(self, tags, consts):
         if self.identifier.name not in tags:
-            raise SemanticError(self.identifier.name_coord, f"Необъявленный тег {self.identifier.name}")
+            raise SemanticError(
+                self.identifier.name_coord,
+                f"Необъявленный тег {self.identifier.name}",
+            )
         return tags[self.identifier.name].size(tags, consts)
 
 
@@ -171,7 +168,7 @@ class SizeofTerm(EnumTerm):
 
     @pe.ExAction
     def create(attrs, coords, res_coord):
-        type_specifier, = attrs
+        (type_specifier,) = attrs
         csizeof, copen, ctype, cclose = coords
         return SizeofTerm(type_specifier, csizeof.start)
 
@@ -190,8 +187,8 @@ class EnumExpr(EnumTerm):
 
     @pe.ExAction
     def create(attrs, coords, res_coord):
-        term, = attrs
-        cterm, = coords
+        (term,) = attrs
+        (cterm,) = coords
         return EnumExpr([term], [], cterm.start)
 
     @pe.ExAction
@@ -208,15 +205,18 @@ class EnumExpr(EnumTerm):
         result = self.terms[0].evaluate(tags, consts)
         for op, term in zip(self.operators, self.terms[1:]):
             val = term.evaluate(tags, consts)
-            if op == '+':
+            if op == "+":
                 result += val
-            elif op == '-':
+            elif op == "-":
                 result -= val
-            elif op == '*':
+            elif op == "*":
                 result *= val
-            elif op == '/':
+            elif op == "/":
                 if val == 0:
-                    raise SemanticError(self.first_term_coord, f"Деление на ноль в выражении перечисления")
+                    raise SemanticError(
+                        self.first_term_coord,
+                        f"Деление на ноль в выражении перечисления",
+                    )
                 result //= val
         return result
 
@@ -229,8 +229,8 @@ class EnumConstant:
 
     @pe.ExAction
     def create(attrs, coords, res_coord):
-        name, = attrs
-        cname, = coords
+        (name,) = attrs
+        (cname,) = coords
         return EnumConstant(name, cname.start, None)
 
     @pe.ExAction
@@ -241,7 +241,9 @@ class EnumConstant:
 
     def check(self, tags, consts):
         if self.name in consts:
-            raise SemanticError(self.name_coord, f"Повторная константа {self.name}")
+            raise SemanticError(
+                self.name_coord, f"Повторная константа {self.name}"
+            )
         if self.value:
             self.value.check(tags, consts)
 
@@ -262,8 +264,8 @@ class IdentifierDeclarator(DirectDeclarator):
 
     @pe.ExAction
     def create(attrs, coords, res_coord):
-        name, = attrs
-        cname, = coords
+        (name,) = attrs
+        (cname,) = coords
         return IdentifierDeclarator(name, cname.start)
 
     def check(self, tags, consts):
@@ -314,7 +316,9 @@ class TypeMemberDecl(MemberDecl):
     def create(attrs, coords, res_coord):
         type_spec, declarator, comma_decls = attrs
         ctype, cdecl, ccomma, csemi = coords
-        return TypeMemberDecl(type_spec, [declarator] + comma_decls, ctype.start)
+        return TypeMemberDecl(
+            type_spec, [declarator] + comma_decls, ctype.start
+        )
 
     def check(self, tags, consts):
         self.type_specifier.check(tags, self.type_coord)
@@ -323,13 +327,19 @@ class TypeMemberDecl(MemberDecl):
             decl.check(tags, consts)
             name = decl.direct_declarator.name
             if name in member_names:
-                raise SemanticError(decl.direct_declarator.name_coord, f"Повторное поле {name}")
+                raise SemanticError(
+                    decl.direct_declarator.name_coord, f"Повторное поле {name}"
+                )
             member_names.add(name)
 
     def size(self, tags, consts):
         total_size = 0
         for decl in self.declarators:
-            base_size = 4 if decl.pointer_count > 0 else self.type_specifier.size(tags, consts)
+            base_size = (
+                4
+                if decl.pointer_count > 0
+                else self.type_specifier.size(tags, consts)
+            )
             if isinstance(decl.direct_declarator, ArrayDeclarator):
                 for dim in decl.direct_declarator.dimensions:
                     base_size *= dim.evaluate(tags, consts)
@@ -358,7 +368,10 @@ class StructUnionBody:
 
     def size(self, tags, consts, is_union=False):
         if is_union:
-            return max((member.size(tags, consts) for member in self.members), default=0)
+            return max(
+                (member.size(tags, consts) for member in self.members),
+                default=0,
+            )
         return sum(member.size(tags, consts) for member in self.members)
 
 
@@ -388,14 +401,17 @@ class StructDecl(Declaration):
 
     @pe.ExAction
     def create_empty(attrs, coords, res_coord):
-        decls, = attrs
+        (decls,) = attrs
         _, cdecls, _ = coords
         return StructDecl(None, None, decls)
 
     def check(self, tags, consts):
         if self.identifier:
             if self.identifier.name in tags:
-                raise SemanticError(self.identifier.name_coord, f"Повторный тег структуры {self.identifier.name}")
+                raise SemanticError(
+                    self.identifier.name_coord,
+                    f"Повторный тег структуры {self.identifier.name}",
+                )
             tags[self.identifier.name] = self
         if self.body:
             self.body.check(tags, consts)
@@ -434,14 +450,17 @@ class UnionDecl(Declaration):
 
     @pe.ExAction
     def create_empty(attrs, coords, res_coord):
-        decls, = attrs
+        (decls,) = attrs
         _, cdecls, _ = coords
         return UnionDecl(None, None, decls)
 
     def check(self, tags, consts):
         if self.identifier:
             if self.identifier.name in tags:
-                raise SemanticError(self.identifier.name_coord, f"Повторный тег объединения {self.identifier.name}")
+                raise SemanticError(
+                    self.identifier.name_coord,
+                    f"Повторный тег объединения {self.identifier.name}",
+                )
             tags[self.identifier.name] = self
         if self.body:
             self.body.check(tags, consts)
@@ -480,26 +499,33 @@ class EnumDecl(Declaration):
 
     @pe.ExAction
     def create_empty(attrs, coords, res_coord):
-        decls, = attrs
+        (decls,) = attrs
         _, cdecls, _ = coords
         return EnumDecl(None, None, decls)
 
     def check(self, tags, consts):
         if self.identifier:
             if self.identifier.name in tags:
-                raise SemanticError(self.identifier.name_coord, f"Повторный тег перечисления {self.identifier.name}")
+                raise SemanticError(
+                    self.identifier.name_coord,
+                    f"Повторный тег перечисления {self.identifier.name}",
+                )
             tags[self.identifier.name] = self
         if self.body:
-            enum_counter = 0  # Локальный счётчик для значений констант
+            enum_counter = 0
             for constant in self.body.constants:
                 constant.check(tags, consts)
-                consts[constant.name] = constant.value.evaluate(tags, consts) if constant.value else enum_counter
+                consts[constant.name] = (
+                    constant.value.evaluate(tags, consts)
+                    if constant.value
+                    else enum_counter
+                )
                 enum_counter += 1
         for decl in self.declarators:
             decl.check(tags, consts)
 
     def size(self, tags, consts):
-        return 4  # Фиксированный размер перечисления
+        return 4
 
 
 @dataclass
@@ -519,44 +545,53 @@ class Program:
         print("\nРазмеры типов:\n")
 
         for decl in self.declarations:
-            if isinstance(decl, (StructDecl, UnionDecl, EnumDecl)) and decl.identifier:
+            if (
+                isinstance(decl, (StructDecl, UnionDecl, EnumDecl))
+                and decl.identifier
+            ):
                 size = decl.size(tags, consts)
                 print(f"Размер типа {decl.identifier.name}: {size} байт")
 
         print("Семантических ошибок не найдено")
 
 
-
-# Терминалы и нетерминалы
-PLUS = pe.Terminal('+', '[+]', str)
-MINUS = pe.Terminal('-', '[-]', str)
-DIV = pe.Terminal('/', '[/]', str)
-MUL = pe.Terminal('*', '[*]', str)
-INTEGER = pe.Terminal('INTEGER', '[0-9]+', int, priority=7)
-IDENTIFIER = pe.Terminal('IDENTIFIER', '[a-zA-Z][a-zA-Z0-9_]*', str)
+PLUS = pe.Terminal("+", "[+]", str)
+MINUS = pe.Terminal("-", "[-]", str)
+DIV = pe.Terminal("/", "[/]", str)
+MUL = pe.Terminal("*", "[*]", str)
+INTEGER = pe.Terminal("INTEGER", "[0-9]+", int)
+IDENTIFIER = pe.Terminal("IDENTIFIER", "[a-zA-Z][a-zA-Z0-9_]*", str)
 
 
 def make_keyword(image):
     return pe.Terminal(image, image, lambda name: None, priority=10)
 
 
-KW_STRUCT, KW_UNION, KW_ENUM, KW_INT, KW_CHAR, KW_DOUBLE, KW_SIZEOF = \
-    map(make_keyword, 'struct union enum int char double sizeof'.split())
+KW_STRUCT, KW_UNION, KW_ENUM, KW_INT, KW_CHAR, KW_DOUBLE, KW_SIZEOF = map(
+    make_keyword, "struct union enum int char double sizeof".split()
+)
 
-NProgram, NDeclaration, NStructDecl, NUnionDecl, NEnumDecl = \
-    map(pe.NonTerminal, 'Program Declaration StructDecl UnionDecl EnumDecl'.split())
+NProgram, NDeclaration, NStructDecl, NUnionDecl, NEnumDecl = map(
+    pe.NonTerminal, "Program Declaration StructDecl UnionDecl EnumDecl".split()
+)
 
-NOptDeclarators = pe.NonTerminal('OptDeclarators')
-NStructUnionBody, NEnumBody, NTypeMemberDecl, NNestedDecl, NTypeSpecifier = \
-    map(pe.NonTerminal, 'StructUnionBody EnumBody TypeMemberDecl NestedDecl TypeSpecifier'.split())
+NOptDeclarators = pe.NonTerminal("OptDeclarators")
+NStructUnionBody, NEnumBody, NTypeMemberDecl, NNestedDecl, NTypeSpecifier = map(
+    pe.NonTerminal,
+    "StructUnionBody EnumBody TypeMemberDecl NestedDecl TypeSpecifier".split(),
+)
 
-NCommaDeclarator, NDeclarator, NDirectDeclarator, NArrayIdentifier = \
-    map(pe.NonTerminal, 'CommaDeclarator Declarator DirectDeclarator ArrayIdentifier'.split())
+NCommaDeclarator, NDeclarator, NDirectDeclarator, NArrayIdentifier = map(
+    pe.NonTerminal,
+    "CommaDeclarator Declarator DirectDeclarator ArrayIdentifier".split(),
+)
 
-NPointer, NEnumConstant, NEnumExpr, NEnumTerm, NArrayBrackets = \
-    map(pe.NonTerminal, 'Pointer EnumConstant EnumExpr EnumTerm ArrayBrackets'.split())
+NPointer, NEnumConstant, NEnumExpr, NEnumTerm, NArrayBrackets = map(
+    pe.NonTerminal,
+    "Pointer EnumConstant EnumExpr EnumTerm ArrayBrackets".split(),
+)
 
-NMemberDecl = pe.NonTerminal('MemberDecl')
+NMemberDecl = pe.NonTerminal("MemberDecl")
 
 # Грамматика
 NProgram |= lambda: Program([])
@@ -568,78 +603,126 @@ NDeclaration |= NUnionDecl
 NDeclaration |= NEnumDecl
 
 NStructDecl |= (
-    KW_STRUCT, IDENTIFIER, '{', NStructUnionBody, '}', NOptDeclarators, ';',
-    StructDecl.create_with_id_and_body
+    KW_STRUCT,
+    IDENTIFIER,
+    "{",
+    NStructUnionBody,
+    "}",
+    NOptDeclarators,
+    ";",
+    StructDecl.create_with_id_and_body,
 )
 NStructDecl |= (
-    KW_STRUCT, IDENTIFIER, NOptDeclarators, ';',
-    StructDecl.create_with_id
+    KW_STRUCT,
+    IDENTIFIER,
+    NOptDeclarators,
+    ";",
+    StructDecl.create_with_id,
 )
 NStructDecl |= (
-    KW_STRUCT, '{', NStructUnionBody, '}', NOptDeclarators, ';',
-    StructDecl.create_with_body
+    KW_STRUCT,
+    "{",
+    NStructUnionBody,
+    "}",
+    NOptDeclarators,
+    ";",
+    StructDecl.create_with_body,
 )
-NStructDecl |= (
-    KW_STRUCT, NOptDeclarators, ';',
-    StructDecl.create_empty
-)
+NStructDecl |= (KW_STRUCT, NOptDeclarators, ";", StructDecl.create_empty)
 
 NUnionDecl |= (
-    KW_UNION, IDENTIFIER, '{', NStructUnionBody, '}', NOptDeclarators, ';',
-    UnionDecl.create_with_id_and_body
+    KW_UNION,
+    IDENTIFIER,
+    "{",
+    NStructUnionBody,
+    "}",
+    NOptDeclarators,
+    ";",
+    UnionDecl.create_with_id_and_body,
 )
 NUnionDecl |= (
-    KW_UNION, IDENTIFIER, NOptDeclarators, ';',
-    UnionDecl.create_with_id
+    KW_UNION,
+    IDENTIFIER,
+    NOptDeclarators,
+    ";",
+    UnionDecl.create_with_id,
 )
 NUnionDecl |= (
-    KW_UNION, '{', NStructUnionBody, '}', NOptDeclarators, ';',
-    UnionDecl.create_with_body
+    KW_UNION,
+    "{",
+    NStructUnionBody,
+    "}",
+    NOptDeclarators,
+    ";",
+    UnionDecl.create_with_body,
 )
-NUnionDecl |= (
-    KW_UNION, NOptDeclarators, ';',
-    UnionDecl.create_empty
-)
+NUnionDecl |= (KW_UNION, NOptDeclarators, ";", UnionDecl.create_empty)
 
 NEnumDecl |= (
-    KW_ENUM, IDENTIFIER, '{', NEnumBody, '}', NOptDeclarators, ';',
-    EnumDecl.create_with_id_and_body
+    KW_ENUM,
+    IDENTIFIER,
+    "{",
+    NEnumBody,
+    "}",
+    NOptDeclarators,
+    ";",
+    EnumDecl.create_with_id_and_body,
 )
 NEnumDecl |= (
-    KW_ENUM, IDENTIFIER, NOptDeclarators, ';',
-    EnumDecl.create_with_id
+    KW_ENUM,
+    IDENTIFIER,
+    NOptDeclarators,
+    ";",
+    EnumDecl.create_with_id,
 )
 NEnumDecl |= (
-    KW_ENUM, '{', NEnumBody, '}', NOptDeclarators, ';',
-    EnumDecl.create_with_body
+    KW_ENUM,
+    "{",
+    NEnumBody,
+    "}",
+    NOptDeclarators,
+    ";",
+    EnumDecl.create_with_body,
 )
-NEnumDecl |= (
-    KW_ENUM, NOptDeclarators, ';',
-    EnumDecl.create_empty
-)
+NEnumDecl |= (KW_ENUM, NOptDeclarators, ";", EnumDecl.create_empty)
 
 NOptDeclarators |= lambda: []
 NOptDeclarators |= NDeclarator, lambda d: [d]
-NOptDeclarators |= NDeclarator, ',', NOptDeclarators, lambda d, ds: [d] + ds
+NOptDeclarators |= NDeclarator, ",", NOptDeclarators, lambda d, ds: [d] + ds
 
 NStructUnionBody |= lambda: StructUnionBody([])
-NStructUnionBody |= NMemberDecl, NStructUnionBody, lambda m, b: StructUnionBody([m] + b.members)
+NStructUnionBody |= (
+    NMemberDecl,
+    NStructUnionBody,
+    lambda m, b: StructUnionBody([m] + b.members),
+)
 
 NEnumBody |= lambda: EnumBody([])
 NEnumBody |= NEnumConstant, lambda c: EnumBody([c])
-NEnumBody |= NEnumConstant, ',', NEnumBody, lambda c, b: EnumBody([c] + b.constants)
+NEnumBody |= (
+    NEnumConstant,
+    ",",
+    NEnumBody,
+    lambda c, b: EnumBody([c] + b.constants),
+)
 
 NMemberDecl |= NTypeMemberDecl
 NMemberDecl |= NNestedDecl
 
-NTypeMemberDecl |= NTypeSpecifier, NDeclarator, NCommaDeclarator, ';', TypeMemberDecl.create
+NTypeMemberDecl |= (
+    NTypeSpecifier,
+    NDeclarator,
+    NCommaDeclarator,
+    ";",
+    TypeMemberDecl.create,
+)
 
 NNestedDecl |= NStructDecl, lambda d: NestedDecl(d)
 NNestedDecl |= NUnionDecl, lambda d: NestedDecl(d)
 NNestedDecl |= NEnumDecl, lambda d: NestedDecl(d)
 
 NCommaDeclarator |= lambda: []
-NCommaDeclarator |= ',', NDeclarator, NCommaDeclarator, lambda d, ds: [d] + ds
+NCommaDeclarator |= ",", NDeclarator, NCommaDeclarator, lambda d, ds: [d] + ds
 
 NTypeSpecifier |= KW_INT, lambda: SympleType(Type.Int)
 NTypeSpecifier |= KW_CHAR, lambda: SympleType(Type.Char)
@@ -651,7 +734,13 @@ NTypeSpecifier |= KW_ENUM, IDENTIFIER, NamedType.create_enum
 NArrayIdentifier |= IDENTIFIER, NArrayBrackets, ArrayDeclarator.create
 
 NArrayBrackets |= lambda: []
-NArrayBrackets |= '[', NEnumExpr, ']', NArrayBrackets, lambda n, dims: [n] + dims
+NArrayBrackets |= (
+    "[",
+    NEnumExpr,
+    "]",
+    NArrayBrackets,
+    lambda n, dims: [n] + dims,
+)
 
 NDeclarator |= NPointer, NDirectDeclarator, Declarator.create
 
@@ -659,10 +748,10 @@ NDirectDeclarator |= IDENTIFIER, IdentifierDeclarator.create
 NDirectDeclarator |= NArrayIdentifier
 
 NPointer |= lambda: 0
-NPointer |= '*', NPointer, lambda p: p + 1
+NPointer |= "*", NPointer, lambda p: p + 1
 
 NEnumConstant |= IDENTIFIER, EnumConstant.create
-NEnumConstant |= IDENTIFIER, '=', NEnumExpr, EnumConstant.create_with_value
+NEnumConstant |= IDENTIFIER, "=", NEnumExpr, EnumConstant.create_with_value
 
 NEnumExpr |= NEnumTerm, EnumExpr.create
 NEnumExpr |= NEnumTerm, PLUS, NEnumExpr, EnumExpr.create_binop
@@ -672,12 +761,12 @@ NEnumExpr |= NEnumTerm, DIV, NEnumExpr, EnumExpr.create_binop
 
 NEnumTerm |= INTEGER, IntegerConstantTerm
 NEnumTerm |= IDENTIFIER, IdentifierTerm.create
-NEnumTerm |= KW_SIZEOF, '(', NTypeSpecifier, ')', SizeofTerm.create
-NEnumTerm |= '(', NEnumExpr, ')', lambda expr: expr
+NEnumTerm |= KW_SIZEOF, "(", NTypeSpecifier, ")", SizeofTerm.create
+NEnumTerm |= "(", NEnumExpr, ")", lambda expr: expr
 
 # Парсер
 p = pe.Parser(NProgram)
-p.add_skipped_domain('\\s')
+p.add_skipped_domain("\\s")
 
 # Обработка входных файлов
 for filename in sys.argv[1:]:
